@@ -4,7 +4,7 @@ module Main exposing (..)
 -}
 
 import Html.Styled as Html exposing (Html)
-import Carousel exposing (Carousel, CarouselMsg(..), EventMsg(..))
+import Carousel exposing (Carousel, CarouselMsg(..))
 
 
 type alias Elements =
