@@ -1,7 +1,7 @@
 {
-    "version": "0.1.0",
+    "version": "1.0.0",
     "summary": "Carousel lib done in COYA AG",
-    "repository": "https://github.com/coyainsurance/elm-carousel",
+    "repository": "https://github.com/coyainsurance/elm-carousel.git",
     "license": "BSD3",
     "source-directories": [
         "src",

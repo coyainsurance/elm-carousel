@@ -13,6 +13,10 @@ You can find an example under the `example/` directory
 
 ## Release History
 
+* 1.0.0
+    * Add complete documentation
+    * Fix repository Url in elm-package.json
+    * Small refactoring on `sendMsg` function
 * 0.1.0
     * Support for touch events
     * Basic testing
@@ -21,7 +25,7 @@ You can find an example under the `example/` directory
 
 ## Contributing
 
-1. Fork it (<https://github.com/yourname/yourproject/fork>)
+1. Fork it (<https://github.com/coyainsurance/elm-carousel/fork>)
 2. Create your feature branch (`git checkout -b feature/fooBar`)
 3. Commit your changes (`git commit -am 'Add some fooBar'`)
 4. Push to the branch (`git push origin feature/fooBar`)
