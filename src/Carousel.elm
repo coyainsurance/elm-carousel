@@ -2,7 +2,8 @@ module Carousel
     exposing
         ( Carousel
         , CarouselMsg(..)
-        , SwipeMsg(..)
+        , Touch(..)
+        , Movement(..)
         , sendMsg
         , fromList
         , Css(..)
@@ -10,7 +11,7 @@ module Carousel
         , unstyledView
         )
 
-{-| This is a library that tries to offer a carousel component in Elm
+{-| This is a carousel 100% in Elm
 
 
 # Definition
@@ -43,7 +44,7 @@ module Carousel
 
 ## Accurate update
 
-@docs sendMsg, SwipeMsg
+@docs sendMsg, Touch, Movement
 
 
 ## None elm-css views
@@ -73,27 +74,23 @@ defaultClientPos =
 -- TYPES
 
 
-type alias Seat msg =
-    Html msg
-
-
 {-| This record represent the Carousel and is used as to represent the state
 of the carousel view. You can check what are the seats, what is the starting
 position of the carousel and wath is the actual position of the carousel.
 
 transformX -> Actual amount of pixels that the carousel is translated
-startingPointX -> When the actual starts the movement
-seats -> Is a Tuple with the index and then the html view
+startingPointX -> When the actual carousel starts the movement
+seats -> Is an `Int` with the index of the seats **(html elements)**
 
     type alias Model =
-        { slides : Carousel Msg
+        { slides : Carousel
         }
 
 -}
-type alias Carousel msg =
+type alias Carousel =
     { transformX : Float
     , startingPointX : Float
-    , seats : ZipList ( Int, Seat msg )
+    , seatIndexes : ZipList Int
     }
 
 
@@ -104,7 +101,7 @@ type alias Carousel msg =
 {-| Instead of use an opaque abstraction like: the `OutMsg` or some internal
 `update` function. We expose all the carousel messages, then you can use them to
 update the `Carousel Msg` type inside your local model or handle some extra
-features by your self in your update.
+implement extra features by your self in your update function.
 
     type Msg
         = SlidesMsg CarouselMsg
@@ -113,27 +110,44 @@ features by your self in your update.
     update msg elements =
         case msg of
             SlidesMsg carouselMsg ->
-                ( { model | slides = Carousel.sendMsg carouselMsg model.slides }
+                ( { model | slides = Carousel.sendMsg carouselMsg slides }
                 , Cmd.none
                 )
 
 -}
 type CarouselMsg
-    = None
-    | CarouselMovementMsg (SwipeMsg Event)
+    = TouchMsg Touch
+    | MovementMsg Movement
 
 
 {-| This are the Touch events that we need in order to offer a good swiping
 experience. You can use them to do a more accurate filter on your update function.
 -}
-type SwipeMsg event
-    = Start event
-    | Move event
-    | End event
+type Touch
+    = Start Event
+    | Move Event
+    | End Event
 
 
-handleSwipeMsg : SwipeMsg Event -> Carousel msg -> Carousel msg
-handleSwipeMsg eventMsg carousel =
+{-| This are movements of the carousel, useful for implement buttons and actions
+-}
+type Movement
+    = Next
+    | Previous
+
+
+handleMovementMsg : Movement -> Carousel -> Carousel
+handleMovementMsg movementMsg carousel =
+    case movementMsg of
+        Next ->
+            { carousel | seatIndexes = ZipList.backward carousel.seatIndexes }
+
+        Previous ->
+            { carousel | seatIndexes = ZipList.forward carousel.seatIndexes }
+
+
+handleTouchMsg : Touch -> Carousel -> Carousel
+handleTouchMsg eventMsg carousel =
     case eventMsg of
         Start event ->
             { carousel | startingPointX = positionX event }
@@ -149,35 +163,35 @@ handleSwipeMsg eventMsg carousel =
                 endClientPos =
                     positionX event
 
-                seats : ZipList ( Int, Seat msg )
-                seats =
+                seatIndexes : ZipList Int
+                seatIndexes =
                     case direction carousel.startingPointX endClientPos of
                         Left ->
-                            ZipList.backward carousel.seats
+                            ZipList.backward carousel.seatIndexes
 
                         Right ->
-                            ZipList.forward carousel.seats
+                            ZipList.forward carousel.seatIndexes
             in
                 { carousel
-                    | seats = seats
+                    | seatIndexes = seatIndexes
                     , startingPointX = endClientPos
                     , transformX = defaultClientPos
                 }
 
 
-{-| This function updates a `Carousel Msg` based on a `CarouselMsg`
+{-| This function updates a `Carousel` based on a `CarouselMsg`
 
     { model | slides = Carousel.sendMsg carouselMsg model.slides }
 
 -}
-sendMsg : CarouselMsg -> Carousel msg -> Carousel msg
+sendMsg : CarouselMsg -> Carousel -> Carousel
 sendMsg carouselMsg carousel =
     case carouselMsg of
-        CarouselMovementMsg eventMsg ->
-            handleSwipeMsg eventMsg carousel
+        TouchMsg eventMsg ->
+            handleTouchMsg eventMsg carousel
 
-        None ->
-            carousel
+        MovementMsg movementMsg ->
+            handleMovementMsg movementMsg carousel
 
 
 
@@ -190,19 +204,20 @@ from a `List (Html msg)`
     Carousel.fromList (List.repeat 5 (Html.text "this is an example of Html"))
 
 -}
-fromList : List (Html msg) -> Carousel msg
+fromList : List (Html msg) -> Carousel
 fromList listOfHtml =
     listOfHtml
-        |> List.indexedMap (,)
+        |> List.length
+        |> List.range 0
         |> ZipList.fromList
         |> Carousel defaultClientPos defaultClientPos
 
 
-isActive : Int -> Maybe ( Int, Seat msg ) -> Bool
-isActive seatId currentSeat =
-    case currentSeat of
-        Just ( id, _ ) ->
-            seatId == id
+isActive : Int -> Maybe Int -> Bool
+isActive seatIndex currentSeatIndex =
+    case currentSeatIndex of
+        Just id ->
+            seatIndex == id
 
         Nothing ->
             False
@@ -250,20 +265,20 @@ eventsList msgConstructor =
     List.map
         Attr.fromUnstyled
         [ Touch.onStart
-            (\event -> msgConstructor (CarouselMovementMsg (Start event)))
+            (\event -> msgConstructor (TouchMsg (Start event)))
         , Touch.onMove
-            (\event -> msgConstructor (CarouselMovementMsg (Move event)))
+            (\event -> msgConstructor (TouchMsg (Move event)))
         , Touch.onEnd
-            (\event -> msgConstructor (CarouselMovementMsg (End event)))
+            (\event -> msgConstructor (TouchMsg (End event)))
         ]
 
 
-seatView : ( Int, Seat msg ) -> Maybe ( Int, Seat msg ) -> Html msg
-seatView ( id, seat ) currentSeat =
+seatView : Maybe Int -> Int -> Html msg -> Html msg
+seatView currentSeatIndex index seat =
     li
         [ Attr.classList
             [ ( toString SeatElement, True )
-            , ( toString Active, isActive id currentSeat )
+            , ( toString Active, isActive index currentSeatIndex )
             ]
         , css
             [ display inlineBlock
@@ -277,20 +292,19 @@ seatView ( id, seat ) currentSeat =
 
     view : Model -> Html Msg
     view model =
-        div [] [ Carousel.view model.slides SlidesMsg ]
+        div [] [ Carousel.view slides carousel SlidesMsg ]
 
 -}
-view : Carousel msg -> (CarouselMsg -> msg) -> Html msg
-view carousel msgConstructor =
+view : List (Html msg) -> (CarouselMsg -> msg) -> Carousel -> Html msg
+view seats msgConstructor carousel =
     let
         carouselSize =
-            toFloat (ZipList.length carousel.seats)
+            toFloat (ZipList.length carousel.seatIndexes)
 
         offsetPct =
-            carousel.seats
+            carousel.seatIndexes
                 |> ZipList.current
-                |> Maybe.withDefault ( 0, text "useless" )
-                |> Tuple.first
+                |> Maybe.withDefault 0
                 |> toFloat
                 |> (\index -> (-1.0 * (100.0 / carouselSize)) * index)
 
@@ -299,6 +313,9 @@ view carousel msgConstructor =
                 property "transition" "transform 0.8s"
             else
                 property "transition" "transform 0.0s"
+
+        currentSeatIndex =
+            ZipList.current carousel.seatIndexes
     in
         div
             [ Attr.class (toString CarouselElement)
@@ -317,7 +334,7 @@ view carousel msgConstructor =
                     , position relative
                     , displayFlex
                     , width
-                        (((ZipList.length carousel.seats) * 100)
+                        (((ZipList.length carousel.seatIndexes) * 100)
                             |> toFloat
                             |> pct
                         )
@@ -332,17 +349,18 @@ view carousel msgConstructor =
                  ]
                     ++ eventsList msgConstructor
                 )
-                (carousel.seats
-                    |> ZipList.toList
-                    |> List.map (flip seatView (ZipList.current carousel.seats))
-                )
+                (List.indexedMap (seatView currentSeatIndex) seats)
             ]
 
 
 {-| This function is here mainly for testing porpoises but developers can find
 it useful if they don't want to have support of elm-css.
 -}
-unstyledView : Carousel msg -> (CarouselMsg -> msg) -> Html.Html msg
-unstyledView carousel msgConstructor =
-    view carousel msgConstructor
+unstyledView :
+    List (Html msg)
+    -> (CarouselMsg -> msg)
+    -> Carousel
+    -> Html.Html msg
+unstyledView listOfSeats msgConstructor carousel =
+    view listOfSeats msgConstructor carousel
         |> toUnstyled
