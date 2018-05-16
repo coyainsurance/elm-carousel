@@ -208,6 +208,7 @@ fromList : List (Html msg) -> Carousel
 fromList listOfHtml =
     listOfHtml
         |> List.length
+        |> flip (-) 1
         |> List.range 0
         |> ZipList.fromList
         |> Carousel defaultClientPos defaultClientPos
