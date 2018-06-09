@@ -3,8 +3,11 @@ module Main exposing (..)
 {-| This is an example using the Carousel
 -}
 
+import Css exposing (..)
 import Html.Styled as Html exposing (Html)
-import Carousel exposing (Carousel, CarouselMsg(..))
+import Html.Styled.Attributes as Attr exposing (css)
+import Html.Styled.Events exposing (onClick)
+import Carousel exposing (Carousel, CarouselMsg(..), Movement(..))
 
 
 -- CONSTANTS
@@ -56,7 +59,71 @@ update msg model =
 
 view : Model -> Html Msg
 view model =
-    Carousel.view slides CarouselEvent model.carousel
+    let
+        leftArrowColor =
+            if 0 == Carousel.currentElement model.carousel then
+                (rgba 0 0 0 0.3)
+            else
+                (rgb 0 0 0)
+
+        rightArrowColor =
+            if
+                (List.length slides - 1)
+                    == Carousel.currentElement model.carousel
+            then
+                (rgba 0 0 0 0.3)
+            else
+                (rgb 0 0 0)
+    in
+        Html.div []
+            [ Html.a
+                [ css
+                    [ cursor pointer
+                    , display inlineBlock
+                    , position absolute
+                    , left zero
+                    , top zero
+                    , height (78 |> px)
+                    , paddingTop (60 |> px)
+                    ]
+                , onClick (CarouselEvent (MovementMsg Previous))
+                ]
+                [ Html.span
+                    [ css
+                        [ width zero
+                        , height zero
+                        , borderTop3 (60 |> px) solid (rgba 0 0 0 0)
+                        , borderBottom3 (60 |> px) solid (rgba 0 0 0 0)
+                        , borderRight3 (60 |> px) solid leftArrowColor
+                        ]
+                    ]
+                    []
+                ]
+            , Carousel.view slides CarouselEvent model.carousel
+            , Html.a
+                [ css
+                    [ cursor pointer
+                    , display inlineBlock
+                    , position absolute
+                    , right zero
+                    , top zero
+                    , height (78 |> px)
+                    , paddingTop (60 |> px)
+                    ]
+                , onClick (CarouselEvent (MovementMsg Next))
+                ]
+                [ Html.span
+                    [ css
+                        [ width zero
+                        , height zero
+                        , borderTop3 (60 |> px) solid (rgba 0 0 0 0)
+                        , borderBottom3 (60 |> px) solid (rgba 0 0 0 0)
+                        , borderLeft3 (60 |> px) solid rightArrowColor
+                        ]
+                    ]
+                    []
+                ]
+            ]
 
 
 

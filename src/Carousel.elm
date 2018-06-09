@@ -9,6 +9,8 @@ module Carousel
         , Css(..)
         , view
         , unstyledView
+        , currentElement
+        , selectElement
         )
 
 {-| This is a carousel 100% in Elm
@@ -26,7 +28,7 @@ module Carousel
 
 # Updates
 
-@docs CarouselMsg
+@docs CarouselMsg, Touch, Movement, sendMsg, selectElement
 
 
 # View
@@ -42,9 +44,9 @@ module Carousel
 @docs Css
 
 
-## Accurate update
+## Helpers
 
-@docs sendMsg, Touch, Movement
+@docs currentElement
 
 
 ## None elm-css views
@@ -80,7 +82,8 @@ position of the carousel and wath is the actual position of the carousel.
 
 transformX -> Actual amount of pixels that the carousel is translated
 startingPointX -> When the actual carousel starts the movement
-seats -> Is an `Int` with the index of the seats **(html elements)**
+seatIndexes -> Is a `ZipList Int` with the indexes of the seats
+**(html elements that later will be passed into the view)**
 
     type alias Model =
         { slides : Carousel
@@ -90,6 +93,7 @@ seats -> Is an `Int` with the index of the seats **(html elements)**
 type alias Carousel =
     { transformX : Float
     , startingPointX : Float
+    , isAnimated : Bool
     , seatIndexes : ZipList Int
     }
 
@@ -121,29 +125,13 @@ type CarouselMsg
 
 
 {-| This are the Touch events that we need in order to offer a good swiping
-experience. You can use them to do a more accurate filter on your update function.
+experience. You can use them, to do a more accurate pattern matching,
+on your main update function.
 -}
 type Touch
     = Start Event
     | Move Event
     | End Event
-
-
-{-| This are movements of the carousel, useful for implement buttons and actions
--}
-type Movement
-    = Next
-    | Previous
-
-
-handleMovementMsg : Movement -> Carousel -> Carousel
-handleMovementMsg movementMsg carousel =
-    case movementMsg of
-        Next ->
-            { carousel | seatIndexes = ZipList.backward carousel.seatIndexes }
-
-        Previous ->
-            { carousel | seatIndexes = ZipList.forward carousel.seatIndexes }
 
 
 handleTouchMsg : Touch -> Carousel -> Carousel
@@ -176,12 +164,33 @@ handleTouchMsg eventMsg carousel =
                     | seatIndexes = seatIndexes
                     , startingPointX = endClientPos
                     , transformX = defaultClientPos
+                    , isAnimated = True
                 }
 
 
-{-| This function updates a `Carousel` based on a `CarouselMsg`
+{-| This are movements of the carousel, useful for implement buttons and actions
+on desktop environments
+-}
+type Movement
+    = Previous
+    | Next
 
-    { model | slides = Carousel.sendMsg carouselMsg model.slides }
+
+handleMovementMsg : Movement -> Carousel -> Carousel
+handleMovementMsg movementMsg carousel =
+    case movementMsg of
+        Previous ->
+            { carousel | seatIndexes = ZipList.backward carousel.seatIndexes }
+
+        Next ->
+            { carousel | seatIndexes = ZipList.forward carousel.seatIndexes }
+
+
+{-| Updates a `Carousel` based on given `CarouselMsg`
+
+    { model | slides = Carousel.sendMsg (TouchMsg (Start event)) model.slides }
+    { model | slides = Carousel.sendMsg (TouchMsg (Move event)) model.slides }
+    { model | slides = Carousel.sendMsg (TouchMsg (End event)) model.slides }
 
 -}
 sendMsg : CarouselMsg -> Carousel -> Carousel
@@ -192,6 +201,46 @@ sendMsg carouselMsg carousel =
 
         MovementMsg movementMsg ->
             handleMovementMsg movementMsg carousel
+
+
+{-| Select an specific seat in a carousel, useful to implement pagination you
+can enable or disable the animations
+
+    { model | slides = Carousel.selectElement 3 False  model.carousel }
+    { model | slides = Carousel.selectElement 3 True  model.carousel }
+
+-}
+selectElement : Int -> Bool -> Carousel -> Carousel
+selectElement index isAnimated carousel =
+    let
+        { seatIndexes } =
+            carousel
+
+        helperFunc : Int -> ZipList Int -> ZipList Int
+        helperFunc index list =
+            if index > 0 then
+                helperFunc (index - 1) (ZipList.backward list)
+            else if index < 0 then
+                helperFunc (index + 1) (ZipList.forward list)
+            else
+                list
+    in
+        { carousel
+            | seatIndexes =
+                helperFunc ((currentElement carousel) - index) seatIndexes
+            , isAnimated = isAnimated
+        }
+
+
+{-| Display the index of the actual selected seat of a `Carousel` useful
+to track from the outside the active seats.
+
+    { model | activeSlide = Carousel.currentElement model.carousel }
+
+-}
+currentElement : Carousel -> Int
+currentElement { seatIndexes } =
+    Maybe.withDefault 0 (ZipList.current seatIndexes)
 
 
 
@@ -211,7 +260,7 @@ fromList listOfHtml =
         |> flip (-) 1
         |> List.range 0
         |> ZipList.fromList
-        |> Carousel defaultClientPos defaultClientPos
+        |> Carousel defaultClientPos defaultClientPos True
 
 
 isActive : Int -> Maybe Int -> Bool
@@ -252,7 +301,7 @@ positionX event =
 
 
 {-| List of union types representing all the classes of the carousel, they are
-exposed mainly if you need some extra visual customizations of the carousel.
+exposed mainly if you need some extra visual customization of the carousel.
 -}
 type Css
     = SeatElement
@@ -310,7 +359,7 @@ view seats msgConstructor carousel =
                 |> (\index -> (-1.0 * (100.0 / carouselSize)) * index)
 
         transition =
-            if carousel.transformX == 0.0 then
+            if carousel.transformX == 0.0 && carousel.isAnimated then
                 property "transition" "transform 0.8s"
             else
                 property "transition" "transform 0.0s"

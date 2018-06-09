@@ -13,6 +13,11 @@ You can find an example under the `example/` directory
 
 ## Release History
 
+* 2.0.0
+    * Remove all the Html msg from the Carousel type alias
+    * Add movement messages to control the carousel from outside
+    * Add `selectElement` to select an specific element
+    * Add `currentElement` to return the selected element
 * 1.0.0
     * Add complete documentation
     * Fix repository Url in elm-package.json
