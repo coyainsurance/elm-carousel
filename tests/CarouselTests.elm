@@ -3,77 +3,207 @@ module CarouselTests exposing (..)
 {-| Test for the Carousel component
 -}
 
-import Carousel exposing (Carousel, CarouselMsg(..), EventMsg(..))
+import Carousel exposing (Carousel, CarouselMsg(..), Touch(..), Movement(..))
 import Html.Styled as Html exposing (Html)
-import Expect
+import Expect exposing (Expectation)
 import ElmTest.Extra exposing (Test, describe, test)
+import Json.Encode exposing (object, float, int, Value, list, bool)
+import Touch exposing (Event, Keys, Touch)
 import ZipList
+
+
+-- Mocks
+
+
+touchJson : Value
+touchJson =
+    object
+        [ ( "identifier", int 3 )
+        , ( "clientX", float 100.0 )
+        , ( "clientY", float 0.0 )
+        , ( "pageX", float 200.0 )
+        , ( "pageY", float 0.0 )
+        , ( "screenX", float 300.0 )
+        , ( "screenY", float 0.0 )
+        ]
+
+
+eventJson : Value
+eventJson =
+    object
+        [ ( "altKey", bool False )
+        , ( "ctrlKey", bool False )
+        , ( "shiftKey", bool False )
+        , ( "changedTouches", list [ touchJson ] )
+        , ( "targetTouches", list [ touchJson ] )
+        , ( "touches", list [ touchJson ] )
+        ]
+
+
+eventMock : Event
+eventMock =
+    Event
+        (Keys False False False)
+        [ Touch 3 ( 100.0, 0.0 ) ( 200.0, 0.0 ) ( 300.0, 0.0 ) ]
+        [ Touch 3 ( 100.0, 0.0 ) ( 200.0, 0.0 ) ( 300.0, 0.0 ) ]
+        [ Touch 3 ( 100.0, 0.0 ) ( 200.0, 0.0 ) ( 300.0, 0.0 ) ]
+
+
+carouselMock : Carousel
+carouselMock =
+    Carousel
+        0.0
+        0.0
+        True
+        (ZipList.fromList (List.range 0 2))
+
+
+
+-- TESTS
 
 
 all : Test
 all =
     describe "Carousel"
-        [ helpersTests
+        [ constructorTests
+        , msgsTests
+        , selectElementTests
+        , currentElementTests
         ]
 
 
-
--- HELPERS TESTS
-
-
-helpersTests : Test
-helpersTests =
-    describe "helper"
-        [ fromListTest
-        , isActiveTest
+constructorTests : Test
+constructorTests =
+    describe "function"
+        [ fromListTests
         ]
 
 
-fromListTest : Test
-fromListTest =
-    describe "fromList"
-        [ test "current element is expected" <|
+fromListTests : Test
+fromListTests =
+    test "`fromList` creates a `Carousel` from an `List (Html msg)`" <|
+        \_ ->
+            Carousel.fromList (List.repeat 3 (Html.text "test"))
+                |> Expect.all
+                    [ Expect.equal 0.0 << .transformX
+                    , Expect.equal 0.0 << .startingPointX
+                    , Expect.equal True << .isAnimated
+                    , Expect.equal (ZipList.fromList (List.range 0 2))
+                        << .seatIndexes
+                    ]
+
+
+msgsTests : Test
+msgsTests =
+    describe "sendMsg"
+        [ test "`TouchMsg (Start Event)` updates `startingPointX`" <|
             \_ ->
-                Carousel.fromList (List.repeat 3 (Html.text "test"))
-                    |> .seats
-                    |> ZipList.current
-                    |> Expect.equal (Just ( 0, (Html.text "test") ))
-        , test "current element is expected after next" <|
+                Carousel.sendMsg (TouchMsg (Start eventMock)) carouselMock
+                    |> Expect.equal 100.0
+                    << .startingPointX
+        , test "`TouchMsg (Move Event)` updates `transformX`" <|
             \_ ->
-                Carousel.fromList (List.repeat 3 (Html.text "test"))
-                    |> .seats
-                    |> ZipList.forward
-                    |> ZipList.current
-                    |> Expect.equal (Just ( 1, (Html.text "test") ))
-        , test "current element is expected after previous" <|
+                Carousel.sendMsg (TouchMsg (Move eventMock)) carouselMock
+                    |> Expect.equal 100.0
+                    << .transformX
+        , test """
+        `TouchMsg (End Event)` select next element, change the startingPointX
+        and reset the animation state to true
+        """ <|
             \_ ->
-                Carousel.fromList (List.repeat 3 (Html.text "test"))
-                    |> .seats
-                    |> ZipList.backward
-                    |> ZipList.current
-                    |> Expect.equal (Just ( 0, (Html.text "test") ))
+                let
+                    mock =
+                        Carousel
+                            100.0
+                            100.0
+                            False
+                            (ZipList.fromList (List.range 0 2))
+                in
+                    Carousel.sendMsg (TouchMsg (End eventMock)) mock
+                        |> Expect.all
+                            [ Expect.equal 0.0 << .transformX
+                            , Expect.equal 100.0 << .startingPointX
+                            , Expect.equal True << .isAnimated
+                            , Expect.equal
+                                ((List.range 0 2)
+                                    |> ZipList.fromList
+                                    |> ZipList.forward
+                                )
+                                << .seatIndexes
+                            ]
+        , test "MovementMsg Previous select the previous element" <|
+            \_ ->
+                Carousel.sendMsg (MovementMsg Previous) carouselMock
+                    |> Expect.equal
+                        ((List.range 0 2)
+                            |> ZipList.fromList
+                            |> ZipList.backward
+                        )
+                    << .seatIndexes
+        , test "MovementMsg Next select the next element" <|
+            \_ ->
+                Carousel.sendMsg (MovementMsg Next) carouselMock
+                    |> Expect.equal
+                        ((List.range 0 2)
+                            |> ZipList.fromList
+                            |> ZipList.forward
+                        )
+                    << .seatIndexes
         ]
 
 
-isActiveTest : Test
-isActiveTest =
-    describe "isActive"
-        [ test
-            ("returns True when the index of the element"
-                ++ "is equal than the current one"
-            )
-          <|
+selectElementTests : Test
+selectElementTests =
+    describe "selectElement"
+        [ test "returns the requested element" <|
             \_ ->
-                (Just ( 0, (Html.text "test") ))
-                    |> Carousel.isActive 0
-                    |> Expect.equal True
-        , test
-            ("returns False when the index of the element"
-                ++ "is different than the current one"
-            )
-          <|
+                Carousel.selectElement 2 True carouselMock
+                    |> Expect.equal
+                        ((List.range 0 2)
+                            |> ZipList.fromList
+                            |> ZipList.forward
+                            |> ZipList.forward
+                        )
+                    << .seatIndexes
+        , test "don't goes out of range with big values" <|
             \_ ->
-                (Just ( 1, (Html.text "test") ))
-                    |> Carousel.isActive 0
+                Carousel.selectElement 10 True carouselMock
+                    |> Expect.equal
+                        ((List.range 0 2)
+                            |> ZipList.fromList
+                            |> ZipList.forward
+                            |> ZipList.forward
+                        )
+                    << .seatIndexes
+        , test "don't goes out of range with smaller values" <|
+            \_ ->
+                Carousel.selectElement -1 True carouselMock
+                    |> Expect.equal
+                        ((List.range 0 2)
+                            |> ZipList.fromList
+                        )
+                    << .seatIndexes
+        , test "disable the animations" <|
+            \_ ->
+                Carousel.selectElement -1 False carouselMock
                     |> Expect.equal False
+                    << .isAnimated
+        ]
+
+
+currentElementTests : Test
+currentElementTests =
+    describe "currentElement"
+        [ test "returns the current element" <|
+            \_ ->
+                let
+                    mock =
+                        Carousel.selectElement 2 True carouselMock
+                in
+                    Carousel.currentElement mock
+                        |> Expect.equal 2
+        , test "returns 0 with empty lists" <|
+            \_ ->
+                Carousel.currentElement (Carousel.fromList [])
+                    |> Expect.equal 0
         ]
