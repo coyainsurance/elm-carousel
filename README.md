@@ -1,5 +1,6 @@
 # Elm carousel
-This is a `carousel` like library created to be used on *COYA AG* products
+This is a `carousel` for elm, as we could not find any :)
+Cool features as touch event handler, movement events and more!
 
 ## Installation
 
