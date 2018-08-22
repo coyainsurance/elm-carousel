@@ -38,4 +38,4 @@ You can find an example under the `example/` directory
 5. Create a new Pull Request
 
 ## LICENSE
-[![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](/LICENSE.md)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](/LICENSE)
