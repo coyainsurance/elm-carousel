@@ -3,7 +3,7 @@
     "elm": "^0.18.0"
   },
   "devDependencies": {
-    "elm-format": "^0.6.1-alpha",
+    "elm-format": "^0.8.2",
     "elm-oracle": "^1.1.1",
     "lobo": "^0.4.1",
     "lobo-cli": "^0.0.2"
