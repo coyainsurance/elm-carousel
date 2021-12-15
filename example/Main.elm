@@ -4,7 +4,8 @@ module Main exposing (..)
 -}
 
 import Css exposing (..)
-import Html.Styled as Html exposing (Html)
+import Browser
+import Html.Styled as Html exposing (Html, toUnstyled)
 import Html.Styled.Attributes as Attr exposing (css)
 import Html.Styled.Events exposing (onClick)
 import Carousel exposing (Carousel, CarouselMsg(..), Movement(..))
@@ -27,8 +28,8 @@ type alias Model =
     }
 
 
-init : ( Model, Cmd Msg )
-init =
+init : () -> ( Model, Cmd Msg )
+init _ =
     ( { carousel = Carousel.fromList slides }, Cmd.none )
 
 
@@ -49,7 +50,7 @@ update msg model =
                     Carousel.sendMsg carouselMsg model.carousel
             in
                 ( { model | carousel = carousel }
-                , Cmd.none
+                , Cmd.none 
                 )
 
 
@@ -130,11 +131,11 @@ view model =
 -- MAIN
 
 
-main : Program Never Model Msg
+main : Program () Model Msg
 main =
-    Html.program
+    Browser.element
         { init = init
-        , view = view
+        , view = view >> toUnstyled
         , update = update
         , subscriptions = \_ -> Sub.none
         }
