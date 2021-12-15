@@ -3,13 +3,14 @@ module CarouselTests exposing (..)
 {-| Test for the Carousel component
 -}
 
-import Carousel exposing (Carousel, CarouselMsg(..), Touch(..), Movement(..))
-import Html.Styled as Html exposing (Html)
+import Carousel exposing (Carousel, CarouselMsg(..), Movement(..), Touch(..))
 import Expect exposing (Expectation)
-import ElmTest.Extra exposing (Test, describe, test)
-import Json.Encode exposing (object, float, int, Value, list, bool)
-import Touch exposing (Event, Keys, Touch)
+import Html.Events.Extra.Touch as Touch exposing (Event, Keys, Touch)
+import Html.Styled as Html exposing (Html)
+import Json.Encode exposing (Value, bool, float, int, list, object)
+import Test exposing (Test, describe, test)
 import ZipList
+
 
 
 -- Mocks
@@ -25,18 +26,6 @@ touchJson =
         , ( "pageY", float 0.0 )
         , ( "screenX", float 300.0 )
         , ( "screenY", float 0.0 )
-        ]
-
-
-eventJson : Value
-eventJson =
-    object
-        [ ( "altKey", bool False )
-        , ( "ctrlKey", bool False )
-        , ( "shiftKey", bool False )
-        , ( "changedTouches", list [ touchJson ] )
-        , ( "targetTouches", list [ touchJson ] )
-        , ( "touches", list [ touchJson ] )
         ]
 
 
@@ -119,23 +108,23 @@ msgsTests =
                             False
                             (ZipList.fromList (List.range 0 2))
                 in
-                    Carousel.sendMsg (TouchMsg (End eventMock)) mock
-                        |> Expect.all
-                            [ Expect.equal 0.0 << .transformX
-                            , Expect.equal 100.0 << .startingPointX
-                            , Expect.equal True << .isAnimated
-                            , Expect.equal
-                                ((List.range 0 2)
-                                    |> ZipList.fromList
-                                    |> ZipList.forward
-                                )
-                                << .seatIndexes
-                            ]
+                Carousel.sendMsg (TouchMsg (End eventMock)) mock
+                    |> Expect.all
+                        [ Expect.equal 0.0 << .transformX
+                        , Expect.equal 100.0 << .startingPointX
+                        , Expect.equal True << .isAnimated
+                        , Expect.equal
+                            (List.range 0 2
+                                |> ZipList.fromList
+                                |> ZipList.forward
+                            )
+                            << .seatIndexes
+                        ]
         , test "MovementMsg Previous select the previous element" <|
             \_ ->
                 Carousel.sendMsg (MovementMsg Previous) carouselMock
                     |> Expect.equal
-                        ((List.range 0 2)
+                        (List.range 0 2
                             |> ZipList.fromList
                             |> ZipList.backward
                         )
@@ -144,7 +133,7 @@ msgsTests =
             \_ ->
                 Carousel.sendMsg (MovementMsg Next) carouselMock
                     |> Expect.equal
-                        ((List.range 0 2)
+                        (List.range 0 2
                             |> ZipList.fromList
                             |> ZipList.forward
                         )
@@ -159,7 +148,7 @@ selectElementTests =
             \_ ->
                 Carousel.selectElement 2 True carouselMock
                     |> Expect.equal
-                        ((List.range 0 2)
+                        (List.range 0 2
                             |> ZipList.fromList
                             |> ZipList.forward
                             |> ZipList.forward
@@ -169,7 +158,7 @@ selectElementTests =
             \_ ->
                 Carousel.selectElement 10 True carouselMock
                     |> Expect.equal
-                        ((List.range 0 2)
+                        (List.range 0 2
                             |> ZipList.fromList
                             |> ZipList.forward
                             |> ZipList.forward
@@ -179,7 +168,7 @@ selectElementTests =
             \_ ->
                 Carousel.selectElement -1 True carouselMock
                     |> Expect.equal
-                        ((List.range 0 2)
+                        (List.range 0 2
                             |> ZipList.fromList
                         )
                     << .seatIndexes
@@ -200,8 +189,8 @@ currentElementTests =
                     mock =
                         Carousel.selectElement 2 True carouselMock
                 in
-                    Carousel.currentElement mock
-                        |> Expect.equal 2
+                Carousel.currentElement mock
+                    |> Expect.equal 2
         , test "returns 0 with empty lists" <|
             \_ ->
                 Carousel.currentElement (Carousel.fromList [])

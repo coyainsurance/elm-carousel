@@ -1,17 +1,12 @@
-module Carousel
-    exposing
-        ( Carousel
-        , CarouselMsg(..)
-        , Touch(..)
-        , Movement(..)
-        , sendMsg
-        , fromList
-        , Css(..)
-        , view
-        , unstyledView
-        , currentElement
-        , selectElement
-        )
+module Carousel exposing
+    ( Carousel
+    , fromList
+    , CarouselMsg(..), Touch(..), Movement(..), sendMsg, selectElement
+    , view
+    , Css(..)
+    , currentElement
+    , unstyledView
+    )
 
 {-| This is a carousel 100% in Elm
 
@@ -56,12 +51,14 @@ module Carousel
 -}
 
 import Css exposing (..)
+import Flip exposing (flip)
 import Html
+import Html.Events.Extra.Touch as Touch exposing (Event)
 import Html.Styled exposing (..)
 import Html.Styled.Attributes as Attr exposing (css)
-import ZipList exposing (ZipList)
-import Touch exposing (Event)
 import Tuple
+import ZipList exposing (ZipList)
+
 
 
 -- CONSTANTS
@@ -124,7 +121,7 @@ type CarouselMsg
     | MovementMsg Movement
 
 
-{-| This are the Touch events that we need in order to offer a good swiping
+{-| These are the Touch events that we need in order to offer a good swiping
 experience. You can use them, to do a more accurate pattern matching,
 on your main update function.
 -}
@@ -142,7 +139,7 @@ handleTouchMsg eventMsg carousel =
 
         Move event ->
             { carousel
-                | transformX = (positionX event) - carousel.startingPointX
+                | transformX = positionX event - carousel.startingPointX
             }
 
         End event ->
@@ -160,15 +157,15 @@ handleTouchMsg eventMsg carousel =
                         Right ->
                             ZipList.forward carousel.seatIndexes
             in
-                { carousel
-                    | seatIndexes = seatIndexes
-                    , startingPointX = endClientPos
-                    , transformX = defaultClientPos
-                    , isAnimated = True
-                }
+            { carousel
+                | seatIndexes = seatIndexes
+                , startingPointX = endClientPos
+                , transformX = defaultClientPos
+                , isAnimated = True
+            }
 
 
-{-| This are movements of the carousel, useful for implement buttons and actions
+{-| These are movements of the carousel, useful for implement buttons and actions
 on desktop environments
 -}
 type Movement
@@ -203,7 +200,7 @@ sendMsg carouselMsg carousel =
             handleMovementMsg movementMsg carousel
 
 
-{-| Select an specific seat in a carousel, useful to implement pagination you
+{-| Select a specific seat in a carousel, useful to implement pagination you
 can enable or disable the animations
 
     { model | slides = Carousel.selectElement 3 False  model.carousel }
@@ -217,19 +214,21 @@ selectElement index isAnimated carousel =
             carousel
 
         helperFunc : Int -> ZipList Int -> ZipList Int
-        helperFunc index list =
-            if index > 0 then
-                helperFunc (index - 1) (ZipList.backward list)
-            else if index < 0 then
-                helperFunc (index + 1) (ZipList.forward list)
+        helperFunc idx list =
+            if idx > 0 then
+                helperFunc (idx - 1) (ZipList.backward list)
+
+            else if idx < 0 then
+                helperFunc (idx + 1) (ZipList.forward list)
+
             else
                 list
     in
-        { carousel
-            | seatIndexes =
-                helperFunc ((currentElement carousel) - index) seatIndexes
-            , isAnimated = isAnimated
-        }
+    { carousel
+        | seatIndexes =
+            helperFunc (currentElement carousel - index) seatIndexes
+        , isAnimated = isAnimated
+    }
 
 
 {-| Display the index of the actual selected seat of a `Carousel` useful
@@ -282,13 +281,14 @@ direction : Float -> Float -> Direction
 direction start end =
     if start < end then
         Left
+
     else
         Right
 
 
 positionX : Event -> Float
 positionX event =
-    case (List.foldl (Just >> always) Nothing event.changedTouches) of
+    case List.foldl (Just >> always) Nothing event.changedTouches of
         Just touch ->
             Tuple.first touch.clientPos
 
@@ -308,6 +308,22 @@ type Css
     | SeatsElement
     | Active
     | CarouselElement
+
+
+toString : Css -> String
+toString css =
+    case css of
+        SeatElement ->
+            "seat-element"
+
+        SeatsElement ->
+            "seats-element"
+
+        Active ->
+            "active"
+
+        CarouselElement ->
+            "carousel-element"
 
 
 eventsList : (CarouselMsg -> msg) -> List (Attribute msg)
@@ -361,46 +377,47 @@ view seats msgConstructor carousel =
         transition =
             if carousel.transformX == 0.0 && carousel.isAnimated then
                 property "transition" "transform 0.8s"
+
             else
                 property "transition" "transform 0.0s"
 
         currentSeatIndex =
             ZipList.current carousel.seatIndexes
     in
-        div
-            [ Attr.class (toString CarouselElement)
-            , css
-                [ width (100 |> pct)
+    div
+        [ Attr.class (toString CarouselElement)
+        , css
+            [ width (100 |> pct)
+            , height (100 |> pct)
+            , overflow hidden
+            ]
+        ]
+        [ ul
+            ([ Attr.class (toString SeatsElement)
+             , css
+                [ listStyle none
+                , margin zero
+                , padding zero
+                , position relative
+                , displayFlex
+                , width
+                    ((ZipList.length carousel.seatIndexes * 100)
+                        |> toFloat
+                        |> pct
+                    )
                 , height (100 |> pct)
                 , overflow hidden
-                ]
-            ]
-            [ ul
-                ([ Attr.class (toString SeatsElement)
-                 , css
-                    [ listStyle none
-                    , margin zero
-                    , padding zero
-                    , position relative
-                    , displayFlex
-                    , width
-                        (((ZipList.length carousel.seatIndexes) * 100)
-                            |> toFloat
-                            |> pct
-                        )
-                    , height (100 |> pct)
-                    , overflow hidden
-                    , transforms
-                        [ translateX (offsetPct |> pct)
-                        , translateX (carousel.transformX |> px)
-                        ]
-                    , transition
+                , transforms
+                    [ translateX (offsetPct |> pct)
+                    , translateX (carousel.transformX |> px)
                     ]
-                 ]
-                    ++ eventsList msgConstructor
-                )
-                (List.indexedMap (seatView currentSeatIndex) seats)
-            ]
+                , transition
+                ]
+             ]
+                ++ eventsList msgConstructor
+            )
+            (List.indexedMap (seatView currentSeatIndex) seats)
+        ]
 
 
 {-| This function is here mainly for testing porpoises but developers can find
